@@ -8,6 +8,9 @@ import { nftAddress, nftMarketAddress } from "../.config";
 import NFT from "../artifacts/contracts/NFT.sol/NFT.json";
 import NFTMarket from "../artifacts/contracts/Market.sol/NFTMarket.json";
 
+import Authereum from "authereum";
+import WalletConnectProvider from "@walletconnect/web3-provider";
+
 type NFTItem = {
   price: string;
   tokenId: string;
@@ -18,20 +21,93 @@ type NFTItem = {
   seller: string;
 };
 
+let providerOptions = {
+  metamask: {
+    id: "injected",
+    name: "MetaMask",
+    type: "injected",
+    check: "isMetaMask",
+  },
+  walletconnect: {
+    package: WalletConnectProvider, // required
+    options: {
+      infuraId: "737e11f0574f4c28a92679ea10cf6c89", // Required
+      network: "maticmum",
+      qrcodeModalOptions: {
+        mobileLinks: [
+          "rainbow",
+          "metamask",
+          "argent",
+          "trust",
+          "imtoken",
+          "pillar",
+        ],
+      },
+    },
+  },
+};
+
 export default function MyAssets() {
   const [loading, setLoading] = useState(false);
   const [nfts, setNfts] = useState<NFTItem[]>([]);
 
   useEffect(() => {
-    getIntialData().then();
+    getIntialData().then((provider) => {
+      if (
+        provider &&
+        provider.connection &&
+        provider.connection.url === "metamask"
+      ) {
+        console.log("Connected Metamask");
+        (window as any).ethereum.on("connect", function (accounts: any) {
+          console.log("metamask connected : ", accounts);
+          // Update user details whn accounts changed
+        });
+        (window as any).ethereum.on(
+          "accountsChanged",
+          function (accounts: any) {
+            console.log("metamask Accounts changed : ", accounts);
+            // Update user details whn accounts changed
+          }
+        );
+      } else {
+        provider.on("error", (e) => console.error("Error coonecting :", e));
+        provider.on("connect", (info: { chainId: number }) => {
+          console.log("Connected  :", info);
+        });
+        provider.on("disconnect", (code: number, reason: string) => {
+          console.log(code, reason);
+        });
+        provider.on("accountsChanged", async (accounts: string[]) => {
+          console.log("Accounts changes : ", accounts);
+        });
+        provider.addListener("connect", (data: any) => {
+          console.log("Connected : ", data);
+        });
+      }
+    });
   }, []);
 
   const getIntialData = async () => {
     setLoading(true);
-    const web3Modal = new Web3Modal();
+    console.log("Before connect");
+    const web3Modal = new Web3Modal({
+      // // network: "maticmum",
+      providerOptions: providerOptions as any,
+      cacheProvider: false,
+      disableInjectedProvider: false,
+    });
+
+    // const web3Modal = new Web3Modal();
     const connection = await web3Modal.connect();
+    console.log("After connect");
     const provider = new ethers.providers.Web3Provider(connection);
+
     const signer = provider.getSigner();
+
+    console.log("Address : ", await provider.listAccounts());
+    //Check the length of list accounts
+
     const nftMarketContract = new ethers.Contract(
       nftMarketAddress,
       NFTMarket.abi,
@@ -60,6 +136,7 @@ export default function MyAssets() {
 
     setNfts(myItems);
     setLoading(false);
+    return provider;
   };
 
   if (!loading && !nfts.length)
