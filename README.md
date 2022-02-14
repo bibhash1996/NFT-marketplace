@@ -1,5 +1,5 @@
 # NFT-marketplace
-A custom made NFT market place where a user can create(Mint), buy and see there NFT's. (WIP)
+A custom made NFT market place where a user can create(Mint), buy and see there NFT's. 
 
 Few of the screenshot of the the NFT marketplace 
 
